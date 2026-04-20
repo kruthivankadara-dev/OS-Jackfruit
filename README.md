@@ -35,7 +35,7 @@ A custom Linux kernel module that:
 
 ## 🏗️ Architecture
 
--
+```text
                 ┌──────────────────────┐
                 │      CLI User        │
                 └─────────┬────────────┘
@@ -58,6 +58,7 @@ A custom Linux kernel module that:
                 │ Kernel Monitor LKM   │
                 │     monitor.c        │
                 └──────────────────────┘
+```
 
 ##🔥 Core Features
 
