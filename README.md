@@ -1,111 +1,240 @@
-# Multi-Container Runtime
+# 🚀 OS Jackfruit — Multi-Container Runtime from Scratch in C
 
-A lightweight Linux container runtime in C with a long-running supervisor and a kernel-space memory monitor.
-
-Read [`project-guide.md`](project-guide.md) for the full project specification.
+> A lightweight Docker-inspired container runtime built completely from scratch using **C**, **Linux namespaces**, **chroot**, **kernel modules**, and **system programming primitives**.  
+> Designed to demonstrate deep Operating System internals including process isolation, memory monitoring, scheduling, IPC, and concurrent runtime management. :contentReference[oaicite:0]{index=0}
 
 ---
 
-## Getting Started
+## 📌 Overview
 
-### 1. Fork the Repository
+**OS Jackfruit** is a custom-built **multi-container runtime** developed as part of an Operating Systems mini project.  
+It replicates the foundational concepts behind platforms like **Docker** and **containerd**, but implemented manually at the OS level.
 
-1. Go to [github.com/shivangjhalani/OS-Jackfruit](https://github.com/shivangjhalani/OS-Jackfruit)
-2. Click **Fork** (top-right)
-3. Clone your fork:
+The system consists of two tightly coupled layers:
 
-```bash
-git clone https://github.com/<your-username>/OS-Jackfruit.git
-cd OS-Jackfruit
-```
+### 🧩 User-Space Runtime (`engine.c`)
+A supervisor process that:
 
-### 2. Set Up Your VM
+- Spawns isolated containers using `clone()`
+- Uses Linux namespaces for isolation
+- Provides CLI commands (`start`, `run`, `ps`, `logs`, `stop`)
+- Redirects logs asynchronously
+- Manages lifecycle of multiple containers
+- Communicates with kernel module via `ioctl()`
 
-You need an **Ubuntu 22.04 or 24.04** VM with **Secure Boot OFF**. WSL will not work.
+### ⚙️ Kernel-Space Monitor (`monitor.c`)
+A custom Linux kernel module that:
 
-Install dependencies:
+- Tracks container processes
+- Monitors RSS memory usage every second
+- Enforces soft/hard memory limits
+- Sends warnings on breaches
+- Kills rogue containers automatically
 
-```bash
-sudo apt update
-sudo apt install -y build-essential linux-headers-$(uname -r)
-```
+---
 
-### 3. Run the Environment Check
+## 🏗️ Architecture
 
-```bash
-cd boilerplate
-chmod +x environment-check.sh
-sudo ./environment-check.sh
-```
+-
+                ┌──────────────────────┐
+                │      CLI User        │
+                └─────────┬────────────┘
+                          │
+                          ▼
+                ┌──────────────────────┐
+                │   Supervisor Engine  │
+                │      (engine.c)      │
+                └───────┬──────────────┘
+                        │
+        ┌───────────────┼────────────────┐
+        ▼                                ▼
+┌──────────────┐                 ┌─────────────────┐
+│ Containers   │                 │ Logging System  │
+│ clone()+NS   │                 │ Producer/Consumer│
+└──────────────┘                 └─────────────────┘
+                        │
+                        ▼
+                ┌──────────────────────┐
+                │ Kernel Monitor LKM   │
+                │     monitor.c        │
+                └──────────────────────┘
 
-Fix any issues reported before moving on.
+##🔥 Core Features
 
-### 4. Prepare the Root Filesystem
+🐳 Container Runtime
+PID Namespace Isolation
+UTS Namespace Isolation
+Mount Namespace Isolation
+chroot() based filesystem sandboxing
+Multiple concurrent containers
+Per-container logging
+Foreground / background execution
 
-```bash
-mkdir rootfs-base
-wget https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/x86_64/alpine-minirootfs-3.20.3-x86_64.tar.gz
-tar -xzf alpine-minirootfs-3.20.3-x86_64.tar.gz -C rootfs-base
+##⚙️ Process Management
 
-# Make one writable copy per container you plan to run
-cp -a ./rootfs-base ./rootfs-alpha
-cp -a ./rootfs-base ./rootfs-beta
-```
+Supervisor architecture
+Signal handling (SIGCHLD, SIGTERM, SIGINT)
+Graceful shutdown
+Zombie process cleanup
 
-Do not commit `rootfs-base/` or `rootfs-*` directories to your repository.
+##🧠 Memory Monitoring
 
-### 5. Understand the Boilerplate
+RSS tracking through task_struct
+Soft limit warnings
+Hard limit auto-kill
+Kernel linked-list PID registry
 
-The `boilerplate/` folder contains starter files:
+##🧵 Concurrency
 
-| File                   | Purpose                                             |
-| ---------------------- | --------------------------------------------------- |
-| `engine.c`             | User-space runtime and supervisor skeleton          |
-| `monitor.c`            | Kernel module skeleton                              |
-| `monitor_ioctl.h`      | Shared ioctl command definitions                    |
-| `Makefile`             | Build targets for both user-space and kernel module |
-| `cpu_hog.c`            | CPU-bound test workload                             |
-| `io_pulse.c`           | I/O-bound test workload                             |
-| `memory_hog.c`         | Memory-consuming test workload                      |
-| `environment-check.sh` | VM environment preflight check                      |
+Producer-consumer bounded buffer
+Mutex + condition variables
+Dedicated logger thread
 
-Use these as your starting point. You are free to restructure the repository however you want — the submission requirements are listed in the project guide.
+##📊 Scheduling Experiments
 
-### 6. Build and Verify
+Supports CPU / Memory / I/O workload benchmarking.
 
-```bash
-cd boilerplate
+##🛠️ Tech Stack
+
+Layer	Technologies
+Language	C
+OS	Linux
+IPC	UNIX Domain Sockets
+Isolation	clone(), namespaces
+Filesystem	chroot()
+Monitoring	Linux Kernel Module
+Synchronization	pthreads
+Logging	Pipes + Threads
+Limits	RSS based memory enforcement
+
+##📂 Project Structure
+
+OS-Jackfruit/
+│── engine.c              # User-space runtime
+│── monitor.c             # Kernel module
+│── monitor_ioctl.h       # Shared ioctl definitions
+│── logs/                 # Container logs
+│── rootfs-base/          # Base container filesystem
+│── rootfs-alpha/         # Container image 1
+│── rootfs-beta/          # Container image 2
+│── workloads/            # cpu_hog / memory_hog / io_pulse
+│── README.md
+
+##🚀 Getting Started
+
+1️⃣ Build Runtime
+gcc engine.c -o engine -lpthread
+2️⃣ Build Kernel Module
 make
-```
+sudo insmod monitor.ko
+3️⃣ Start Supervisor
+sudo ./engine supervisor ./rootfs-base
+📦 Usage
+Start Container
+sudo ./engine start alpha ./rootfs-alpha /bin/sh
+Run in Foreground
+sudo ./engine run beta ./rootfs-beta /bin/sh
+List Containers
+sudo ./engine ps
+View Logs
+sudo ./engine logs alpha
+Stop Container
+sudo ./engine stop alpha
+📈 Sample Output
+ID        PID    STATE     SOFT(MiB) HARD(MiB)
+alpha     3440   running   40        64
+beta      3454   running   40        64
 
-If this compiles without errors, your environment is ready.
+##🧪 Workload Experiments
 
-### 7. GitHub Actions Smoke Check
+CPU Hog
 
-Your fork will inherit a minimal GitHub Actions workflow from this repository.
+Stresses scheduler fairness.
 
-That workflow only performs CI-safe checks:
+Memory Hog
 
-- `make -C boilerplate ci`
-- user-space binary compilation (`engine`, `memory_hog`, `cpu_hog`, `io_pulse`)
-- `./boilerplate/engine` with no arguments must print usage and exit with a non-zero status
+Validates soft/hard memory kill logic.
 
-The CI-safe build command is:
+I/O Pulse
 
-```bash
-make -C boilerplate ci
-```
+Simulates disk bursts and system responsiveness.
 
-This smoke check does not test kernel-module loading, supervisor runtime behavior, or container execution.
+##💡 Engineering Highlights 
 
----
+✔ Low-Level Systems Design
 
-## What to Do Next
+Implemented mini-Docker architecture from scratch.
 
-Read [`project-guide.md`](project-guide.md) end to end. It contains:
+✔ Kernel + User Space Integration
 
-- The six implementation tasks (multi-container runtime, CLI, logging, kernel monitor, scheduling experiments, cleanup)
-- The engineering analysis you must write
-- The exact submission requirements, including what your `README.md` must contain (screenshots, analysis, design decisions)
+Bidirectional communication using ioctl.
 
-Your fork's `README.md` should be replaced with your own project documentation as described in the submission package section of the project guide. (As in get rid of all the above content and replace with your README.md)
+✔ Concurrent Logging Pipeline
+
+Bounded-buffer producer-consumer implementation.
+
+✔ Reliable Process Supervision
+
+Graceful reaping, cleanup, lifecycle tracking.
+
+✔ Performance-Oriented Design
+
+Containers launch in milliseconds vs full VMs.
+
+##📚 Operating System Concepts Demonstrated
+
+Process Creation
+Scheduling
+Signals
+Synchronization
+IPC
+Virtualization
+Filesystem Isolation
+Kernel Modules
+Resource Limits
+Memory Management
+
+##⚠️ Limitations
+
+Uses chroot() instead of overlay filesystem
+Basic CLI only
+No networking namespace yet
+No image layering
+cgroups can be extended further
+
+##🔮 Future Enhancements
+
+Network namespaces
+cgroups v2 support
+OverlayFS images
+Container snapshots
+Web dashboard
+Kubernetes-style orchestration
+
+##🏆 Why This Project Stands Out
+
+Most students build apps.
+This project builds infrastructure.
+
+It demonstrates skills expected in:
+Systems Engineering
+Kernel Development
+Platform Engineering
+Distributed Infrastructure
+Runtime / Compiler Teams
+
+
+##👨‍💻 Authors
+
+Vankadara Sri Kruthi
+Valmiki Uma
+
+PES University — Computer Science & Engineering
+
+##📜 License
+
+Academic / Educational Use Only
+
+⭐ If you like this project
+
+Give it a star and fork it.
